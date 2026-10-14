@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HROne HRMS</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: #eef1f6;
+      color: #222;
+    }
+
+    header {
+      background: #16213a;
+      color: white;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+    }
+
+    header h1 span {
+      color: #4da3ff;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: gray;
+      display: inline-block;
+    }
+
+    nav {
+      background: white;
+      display: flex;
+      gap: 4px;
+      padding: 8px 24px;
+      box-shadow: 0 1px 4px #0001;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    nav button {
+      border: none;
+      background: none;
+      padding: 10px 18px;
+      font-size: 15px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+
+    nav button.active {
+      border-bottom-color: #1a73e8;
+      color: #1a73e8;
+      font-weight: bold;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 20px auto;
+      padding: 0 16px 60px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 1px 5px #0001;
+    }
+
+    .card h3 {
+      margin: 0 0 4px;
+      font-size: 13px;
+      color: #666;
+      text-transform: uppercase;
+    }
+
+    .card .big {
+      font-size: 30px;
+      font-weight: bold;
+    }
+
+    .card .big.green {
+      color: #0a8a4b;
+    }
+
+    .card .big.red {
+      color: #c5221f;
+    }
+
+    .card .big.orange {
+      color: #e8710a;
+    }
+
+    .card .big.blue {
+      color: #1a73e8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background: #f4f6fb;
+      color: #555;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    input,
+    select {
+      padding: 8px;
+      font-size: 14px;
+      margin: 4px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    .btn {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 16px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn.green {
+      background: #0a8a4b;
+    }
+
+    .btn.orange {
+      background: #e8710a;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .pill {
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: white;
+    }
+
+    .PRESENT {
+      background: #0a8a4b;
+    }
+
+    .WFH {
+      background: #673ab7;
+    }
+
+    .ON_DUTY {
+      background: #0288d1;
+    }
+
+    .ABSENT {
+      background: #c5221f;
+    }
+
+    .LEAVE {
+      background: #e8710a;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #0a8a4b;
+      color: white;
+      padding: 12px 18px;
+      border-radius: 8px;
+      display: none;
+      max-width: 350px;
+    }
+
+    .bar {
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .bar>div {
+      height: 100%;
+      background: #1a73e8;
+    }
+
+    .flex {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    small.muted {
+      color: #777;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const API = 'http://localhost:8000';
+
+    // ---- tiny helpers ----
+    async function api(method, path, body) {
+      const opt = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opt.body = JSON.stringify(body);
+      const r = await fetch(API + path, opt);
+      let data = null;
+      try { data = await r.json(); } catch (e) { }
+      return { ok: r.ok, status: r.status, data };
+    }
+    // epoch millis -> readable IST time, e.g. "10-Jul, 09:28"
+    function ist(ms) {
+      if (ms == null) return '—';
+      return new Date(ms).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      });
+    }
+    function showToast(msg, good) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      t.style.background = good === false ? '#c5221f' : '#0a8a4b';
+      setTimeout(() => { t.style.display = 'none'; }, 3500);
+    }
+
+    // ---- small reusable pieces ----
+    function StatCard({ label, value, cls, sub }) {
+      return (
+        <div className="card">
+          <h3>{label}</h3>
+          <div className={'big ' + (cls || '')}>{value}</div>
+          {sub && <small className="muted">{sub}</small>}
+        </div>
+      );
+    }
+    function StatusPill({ value, halfDay }) {
+      return (
+        <span>
+          <span className={'pill ' + value}>{value}</span>
+          {halfDay && <small> half-day</small>}
+        </span>
+      );
+    }
+
+    // ---- main app ----
+    function App() {
+      const [page, setPage] = useState('dash');
+      const [live, setLive] = useState(false);
+      const [employees, setEmployees] = useState([]);
+
+      useEffect(() => {
+        api('GET', '/health').then(r => setLive(r.ok));
+        loadEmployees();
+      }, []);
+
+      async function loadEmployees() {
+        const r = await api('GET', '/employees?page=1&page_size=100');
+        if (r.ok) setEmployees(r.data.items);
+      }
+
+      return (
+        <div>
+          <header>
+            <span className="dot" style={{ background: live ? '#0f0' : 'red' }}></span>
+            <h1>HR<span>One</span> HRMS</h1>
+            <small style={{ opacity: 0.8 }}>{live ? '● Live' : '● API is down'}</small>
+          </header>
+          <nav>
+            {['dash', 'emp', 'att', 'rep'].map(p => (
+              <button key={p} className={page === p ? 'active' : ''} onClick={() => setPage(p)}>
+                {{ dash: 'Dashboard', emp: 'Employees', att: 'Attendance', rep: 'Reports' }[p]}
+              </button>
+            ))}
+          </nav>
+          <main>
+            {page === 'dash' && <Dashboard />}
+            {page === 'emp' && <Employees employees={employees} reload={loadEmployees} />}
+            {page === 'att' && <Attendance employees={employees} />}
+            {page === 'rep' && <Reports employees={employees} />}
+          </main>
+          <div className="toast" id="toast"></div>
+        </div>
+      );
+    }
+
+    // ---- dashboard: today's organisation status + monthly overview ----
+    function Dashboard() {
+      const [month, setMonth] = useState('2026-07');
+      const [summary, setSummary] = useState([]);
+      const [late, setLate] = useState([]);
+      const [todayRows, setTodayRows] = useState([]);
+      const [todayLabel, setTodayLabel] = useState('');
+
+      // today's date in IST as YYYY-MM-DD
+      function istToday() {
+        return new Date().toLocaleString('en-CA', {
+          timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+        });
+      }
+
+      function loadMonthly() {
+        api('GET', '/analytics/departments/summary?month=' + month).then(r => {
+          if (r.ok) setSummary(r.data.items);
+        });
+        api('GET', '/analytics/leaderboard/late?month=' + month + '&limit=5').then(r => {
+          if (r.ok) setLate(r.data.items);
+        });
+      }
+      function loadToday() {
+        const t = istToday();
+        setTodayLabel(new Date().toLocaleDateString('en-IN', {
+          timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric'
+        }));
+        api('GET', '/attendance?date_from=' + t + '&date_to=' + t + '&page=1&page_size=100').then(r => {
+          if (r.ok) setTodayRows(r.data.items);
+        });
+      }
+      useEffect(() => { loadMonthly(); loadToday(); }, []);
+
+      const isPresent = s => ['PRESENT', 'WFH', 'ON_DUTY'].includes(s);
+      const presentToday = todayRows.filter(a => isPresent(a.status)).length;
+      const leaveToday = todayRows.filter(a => a.status === 'LEAVE').length;
+      const absentToday = todayRows.filter(a => a.status === 'ABSENT').length;
+      const lateToday = todayRows.filter(a => (a.late_minutes || 0) > 0).length;
+
+      return (
+        <div>
+          <h3 style={{ margin: '4px 0 8px', color: '#555' }}>Today — {todayLabel} </h3>
+          <div className="grid">
+            <StatCard label="Present Today" value={presentToday} cls="green" sub="office + WFH + on duty" />
+            <StatCard label="On Leave Today" value={leaveToday} cls="orange" sub="approved leave records" />
+            <StatCard label="Absent Today" value={absentToday} cls="red" sub="marked absent records" />
+            <StatCard label="Late Arrivals Today" value={lateToday} cls="blue" sub="punched in after grace time" />
+          </div>
+          <br />
+          <div className="card">
+            <h3>Today's Attendance — {todayLabel}</h3>
+            {todayRows.length === 0 ? (
+              <small className="muted">No records today yet — punch in from the Attendance tab.</small>
+            ) : (
+              <table>
+                <thead><tr><th>Emp</th><th>Status</th><th>In (IST)</th><th>Late</th></tr></thead>
+                <tbody>
+                  {todayRows.map(a => (
+                    <tr key={a.emp_code + a.date}>
+                      <td><b>{a.emp_code}</b></td>
+                      <td><StatusPill value={a.status} halfDay={a.half_day} /></td>
+                      <td>{ist(a.punch_in)}</td>
+                      <td>{a.late_minutes} min</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <br />
+            <button className="btn" onClick={loadToday}>Refresh Today</button>
+          </div>
+          <br />
+          <h3 style={{ margin: '4px 0 8px', color: '#555' }}>Monthly Overview</h3>
+          <div className="flex">
+            <div><label>Month</label><br /><input type="month" value={month} onChange={e => setMonth(e.target.value)} /></div>
+            <button className="btn" onClick={loadMonthly}>Load Month</button>
+          </div>
+          <br />
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+            <div className="card">
+              <h3>Department Summary ({month})</h3>
+              <table>
+                <thead><tr><th>Dept</th><th>Staff</th><th>Present</th><th>Avg hrs</th></tr></thead>
+                <tbody>
+                  {summary.map(d => (
+                    <tr key={d.department}>
+                      <td><b>{d.department}</b></td><td>{d.headcount}</td>
+                      <td>{d.present_days}</td><td>{d.avg_work_hours ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="card">
+              <h3>Late Leaderboard ({month})</h3>
+              <table>
+                <thead><tr><th>#</th><th>Name</th><th>Late</th></tr></thead>
+                <tbody>
+                  {late.map(x => (
+                    <tr key={x.emp_code}>
+                      <td>{x.rank}</td>
+                      <td><b>{x.name}</b><br /><small className="muted">{x.emp_code}</small></td>
+                      <td><b>{x.total_late_minutes}</b> min</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ---- employees: directory + add form ----
+    function Employees({ employees, reload }) {
+      const [q, setQ] = useState('');
+      const [dept, setDept] = useState('');
+      const [form, setForm] = useState({
+        emp_code: 'EMP0007', name: 'Amit Kumar', email: 'amit@example.com',
+        department: 'Engineering', shift_start: '09:30', shift_end: '18:30', joined_on: '2026-07-01'
+      });
+      const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+      const depts = [...new Set(employees.map(e => e.department))];
+      const rows = employees.filter(e =>
+        (!dept || e.department === dept) &&
+        (!q || e.name.toLowerCase().includes(q.toLowerCase()) || e.emp_code.toLowerCase().includes(q.toLowerCase()))
+      );
+
+      async function submit() {
+        const r = await api('POST', '/employees', form);
+        if (r.ok) { showToast(form.emp_code + ' added successfully'); reload(); }
+        else showToast('Could not add: ' + JSON.stringify(r.data), false);
+      }
+
+      return (
+        <div>
+          <div className="card">
+            <h3>Add New Employee</h3>
+            <div className="flex">
+              <div><label>Code</label><br /><input value={form.emp_code} onChange={e => set('emp_code', e.target.value)} /></div>
+              <div><label>Name</label><br /><input value={form.name} onChange={e => set('name', e.target.value)} /></div>
+              <div><label>Email</label><br /><input value={form.email} onChange={e => set('email', e.target.value)} /></div>
+              <div><label>Dept</label><br /><input value={form.department} onChange={e => set('department', e.target.value)} /></div>
+              <div><label>Shift</label><br /><input value={form.shift_start} size="5" onChange={e => set('shift_start', e.target.value)} /> -
+                <input value={form.shift_end} size="5" onChange={e => set('shift_end', e.target.value)} /></div>
+              <div><label>Joining</label><br /><input type="date" value={form.joined_on} onChange={e => set('joined_on', e.target.value)} /></div>
+              <div><br /><button className="btn green" onClick={submit}>Add</button></div>
+            </div>
+          </div>
+          <br />
+          <div className="flex">
+            <input placeholder="Search by name / code" value={q} onChange={e => setQ(e.target.value)} />
+            <select value={dept} onChange={e => setDept(e.target.value)}>
+              <option value="">All departments</option>
+              {depts.map(d => <option key={d}>{d}</option>)}
+            </select>
+            <button className="btn" onClick={reload}>Refresh</button>
+          </div>
+          <br />
+          <table>
+            <thead><tr><th>Code</th><th>Name</th><th>Dept</th><th>Shift</th><th>Joined</th></tr></thead>
+            <tbody>
+              {rows.map(e => (
+                <tr key={e.emp_code}>
+                  <td><b>{e.emp_code}</b></td>
+                  <td>{e.name}<br /><small className="muted">{e.email}</small></td>
+                  <td>{e.department}</td>
+                  <td>{e.shift_start} – {e.shift_end}</td>
+                  <td>{e.joined_on}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    // ---- attendance: punch in / punch out / correction + record list ----
+    function Attendance({ employees }) {
+      const [inEmp, setInEmp] = useState('EMP0001');
+      const [inStatus, setInStatus] = useState('PRESENT');
+      const [outEmp, setOutEmp] = useState('EMP0001');
+      const [cEmp, setCEmp] = useState('EMP0003');
+      const [cDate, setCDate] = useState('2026-07-06');
+  const [cStatus, setCStatus] = useState('');
+  const [cBy, setCBy] = useState('');
+  const [cReason, setCReason] = useState('');
+  const [cInTime, setCInTime] = useState('');
+  const [cOutTime, setCOutTime] = useState('');
+      const [from, setFrom] = useState('2026-07-06');
+      const [to, setTo] = useState('2026-07-08');
+      const [rows, setRows] = useState([]);
+
+      function list() {
+        api('GET', `/attendance?date_from=${from}&date_to=${to}&page=1&page_size=50`).then(r => {
+          if (r.ok) setRows(r.data.items);
+        });
+      }
+      useEffect(list, []);
+
+      const empOptions = employees.map(e => (
+        <option key={e.emp_code} value={e.emp_code}>{e.emp_code} — {e.name}</option>
+      ));
+
+      async function punchIn() {
+        const r = await api('POST', '/attendance/punch-in', { emp_code: inEmp, status: inStatus });
+        if (r.ok) { showToast(`Punch-IN done (late: ${r.data.late_minutes} min)`); list(); }
+        else if (r.status === 409) showToast('Already punched in for this date', false);
+        else showToast('Error: ' + JSON.stringify(r.data), false);
+      }
+      async function punchOut() {
+        const r = await api('POST', '/attendance/punch-out', { emp_code: outEmp });
+        if (r.ok) { showToast(`Punch-OUT done: ${r.data.work_hours} hours, OT ${r.data.overtime_minutes} min`); list(); }
+        else showToast('Error: ' + JSON.stringify(r.data), false);
+      }
+  async function correct() {
+    const body = { reason: cReason, regularized_by: cBy };
+    if (cStatus) body.status = cStatus;
+    if (cInTime) body.punch_in = new Date(cInTime).getTime();
+    if (cOutTime) body.punch_out = new Date(cOutTime).getTime();
+        const r = await api('PATCH', `/attendance/${cEmp}/${cDate}`, body);
+        if (r.ok) { showToast('Correction saved, history entry added'); list(); }
+        else showToast('Not saved: ' + JSON.stringify(r.data), false);
+      }
+
+      return (
+        <div>
+          <div className="flex" style={{ alignItems: 'stretch' }}>
+            <div className="card" style={{ flex: 1, minWidth: 260, borderTop: '4px solid #0a8a4b' }}>
+              <h3>Punch-IN (arrival)</h3>
+              <label>Employee</label><br />
+              <select style={{ width: '100%' }} value={inEmp} onChange={e => setInEmp(e.target.value)}>{empOptions}</select><br />
+              <label>Work mode</label><br />
+              <select style={{ width: '100%' }} value={inStatus} onChange={e => setInStatus(e.target.value)}>
+                <option value="PRESENT">Office (Present)</option>
+                <option value="WFH">Home (WFH)</option>
+                <option value="ON_DUTY">Field duty (On Duty)</option>
+              </select><br /><br />
+              <button className="btn green" style={{ width: '100%' }} onClick={punchIn}>Punch-IN</button>
+            </div>
+            <div className="card" style={{ flex: 1, minWidth: 260, borderTop: '4px solid #e8710a' }}>
+              <h3>Punch-OUT (departure)</h3>
+              <label>Employee</label><br />
+              <select style={{ width: '100%' }} value={outEmp} onChange={e => setOutEmp(e.target.value)}>{empOptions}</select><br /><br />
+              <button className="btn orange" style={{ width: '100%' }} onClick={punchOut}>Punch-OUT</button>
+              <br /><small className="muted">Hours, overtime and half-day are computed automatically.</small>
+            </div>
+            <div className="card" style={{ flex: 1, minWidth: 260, borderTop: '4px solid #1a73e8' }}>
+              <h3>Correction (manager fix)</h3>
+              <label>Employee</label><br />
+              <select style={{ width: '100%' }} value={cEmp} onChange={e => setCEmp(e.target.value)}>{empOptions}</select><br />
+              <label>Date</label><br />
+              <input type="date" style={{ width: '100%' }} value={cDate} onChange={e => setCDate(e.target.value)} /><br />
+              <label>New status</label><br />
+              <select style={{ width: '100%' }} value={cStatus} onChange={e => setCStatus(e.target.value)}>
+                <option value="">(keep unchanged)</option>
+                <option>PRESENT</option><option>WFH</option><option>ON_DUTY</option>
+                <option>ABSENT</option><option>LEAVE</option>
+              </select><br />
+          <label>New punch-IN time (optional)</label><br />
+          <input type="datetime-local" style={{ width: '100%' }} value={cInTime} onChange={e => setCInTime(e.target.value)} /><br />
+          <label>New punch-OUT time (optional)</label><br />
+          <input type="datetime-local" style={{ width: '100%' }} value={cOutTime} onChange={e => setCOutTime(e.target.value)} /><br />
+          <input style={{ width: '100%' }} value={cBy} onChange={e => setCBy(e.target.value)} placeholder="corrected by (e.g. hr.admin)" /><br />
+          <input style={{ width: '100%' }} value={cReason} onChange={e => setCReason(e.target.value)} placeholder="reason for correction" /><br /><br />
+          <button className="btn" style={{ width: '100%' }} onClick={correct}>Save Correction</button>
+          <br /><small className="muted">Wrong punch-OUT? Enter the correct punch-OUT time above — hours and overtime are recalculated automatically.</small>
+            </div>
+          </div>
+          <br />
+          <div className="flex">
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)} />
+            <input type="date" value={to} onChange={e => setTo(e.target.value)} />
+            <button className="btn" onClick={list}>Show Attendance</button>
+          </div>
+          <br />
+          <table>
+            <thead><tr><th>Date</th><th>Emp</th><th>Status</th><th>In – Out (IST)</th><th>Hours</th><th>Late / OT</th></tr></thead>
+            <tbody>
+              {rows.map(a => (
+                <tr key={a.emp_code + a.date}>
+                  <td>{a.date}</td><td><b>{a.emp_code}</b></td>
+                  <td><StatusPill value={a.status} halfDay={a.half_day} /></td>
+                  <td>{ist(a.punch_in)} → {ist(a.punch_out)}</td>
+                  <td>{a.work_hours ?? '—'}</td>
+                  <td>late {a.late_minutes} / OT {a.overtime_minutes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    // ---- reports: monthly per employee + daily department trend ----
+    function Reports({ employees }) {
+      const [emp, setEmp] = useState('EMP0001');
+      const [month, setMonth] = useState('2026-07');
+      const [rep, setRep] = useState(null);
+      const [dept, setDept] = useState('Engineering');
+      const [from, setFrom] = useState('2026-07-06');
+      const [to, setTo] = useState('2026-07-12');
+      const [trend, setTrend] = useState([]);
+
+      function monthly() {
+        api('GET', `/analytics/employees/${emp}/monthly?month=${month}`).then(r => {
+          if (r.ok) setRep(r.data);
+          else showToast('Report failed', false);
+        });
+      }
+      function trendLoad() {
+        api('GET', `/analytics/departments/${dept}/trend?from=${from}&to=${to}`).then(r => {
+          if (r.ok) setTrend(r.data.items);
+          else showToast('Trend failed', false);
+        });
+      }
+
+      return (
+        <div>
+          <div className="card">
+            <h3>Monthly Report — one employee</h3>
+            <div className="flex">
+              <select value={emp} onChange={e => setEmp(e.target.value)}>
+                {employees.map(e => <option key={e.emp_code} value={e.emp_code}>{e.emp_code} — {e.name}</option>)}
+              </select>
+              <input type="month" value={month} onChange={e => setMonth(e.target.value)} />
+              <button className="btn" onClick={monthly}>Generate Report</button>
+            </div>
+            {rep && (
+              <div><br />
+                <div className="grid">
+                  <StatCard label="Present" value={`${rep.present_days} / ${rep.working_days}`}
+                    sub={(rep.attendance_pct ?? '—') + '% attendance'} />
+                  <StatCard label="Late" value={rep.total_late_minutes + ' min'} sub={'late on ' + rep.late_count + ' days'} />
+                  <StatCard label="Overtime" value={rep.total_overtime_minutes + ' min'} sub={'leave: ' + rep.leave_days + ' days'} />
+                </div>
+              </div>
+            )}
+          </div>
+          <br />
+          <div className="card">
+            <h3>Daily Trend — one department</h3>
+            <div className="flex">
+              <select value={dept} onChange={e => setDept(e.target.value)}>
+                <option>Engineering</option><option>Sales</option><option>Support</option>
+              </select>
+              <input type="date" value={from} onChange={e => setFrom(e.target.value)} />
+              <input type="date" value={to} onChange={e => setTo(e.target.value)} />
+              <button className="btn" onClick={trendLoad}>Show Trend</button>
+            </div>
+            <br />
+            <table>
+              <thead><tr><th>Date</th><th>Present</th><th>Staff</th><th>Rate</th><th>Graph</th></tr></thead>
+              <tbody>
+                {trend.map(x => (
+                  <tr key={x.date}>
+                    <td>{x.date}{!x.is_working_day && ' (weekend)'}</td>
+                    <td>{x.present_count}</td><td>{x.headcount}</td>
+                    <td>{x.attendance_rate == null ? 'weekend' : (x.attendance_rate * 100).toFixed(1) + '%'}</td>
+                    <td><div className="bar"><div style={{ width: Math.round((x.attendance_rate || 0) * 100) + '%' }}></div></div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+
+</html>

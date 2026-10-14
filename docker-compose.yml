@@ -1,0 +1,20 @@
+# Local development only — NOT used by the grader.
+# Starts MongoDB 7 for the API. The grader injects its own MONGO_URI / MONGO_DB.
+# Run:  docker compose up -d
+# Stop: docker compose down   (add -v to also delete the saved data)
+services:
+  mongo:
+    image: mongo:7
+    container_name: hrone-mongo-dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - hrone-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  hrone-mongo-data:
