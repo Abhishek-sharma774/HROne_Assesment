@@ -52,15 +52,6 @@ uvicorn app.main:app --port 8000 --reload
 
 All backend code lives in `app/main.py` only.
 
-### 3. Frontend setup (demo HRMS UI, optional)
-
-No build step is needed. While the API is running, open
-`hrms-ui-react.html` in a browser (double-click the file).
-
-It is a single-file React UI with 4 tabs — Dashboard, Employees,
-Attendance, Reports — that calls the local API. It is a local demo
-only and is NOT part of the assessment submission.
-
 ## What is implemented
 - `POST /employees`, `GET /employees`
 - `POST /attendance/punch-in`, `POST /attendance/punch-out`
